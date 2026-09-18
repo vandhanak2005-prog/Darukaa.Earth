@@ -44,6 +44,7 @@ app.add_middleware(
     allow_origins=[
         "https://darukaa-earth-ten.vercel.app",
         "https://darukaa-earth-git-master-vandhanak2005-prog.vercel.app",
+        "http://localhost:5173",
     ],
     allow_credentials=True,
     allow_methods=["*"],
