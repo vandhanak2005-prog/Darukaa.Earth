@@ -666,3 +666,99 @@ textarea {
     flex-direction: column;
   }
 }
+
+/* =========================
+   LOGIN / REGISTER
+   ADDED ONLY FOR AUTHENTICATION
+========================= */
+
+.login-page {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f8f6;
+  padding: 20px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 430px;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 35px;
+  box-shadow: 0 20px 60px rgba(20, 55, 35, 0.12);
+}
+
+.login-logo {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  border-radius: 16px;
+  background: #123b28;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+}
+
+.login-card h1 {
+  margin: 0;
+  color: #173b29;
+  text-align: center;
+}
+
+.login-card h2 {
+  color: #173b29;
+}
+
+.login-card p {
+  color: #718078;
+}
+
+.login-card input {
+  width: 100%;
+  border: 1px solid #d6e0d9;
+  border-radius: 8px;
+  padding: 12px 13px;
+  outline: none;
+  color: #25382c;
+  background: #fcfdfc;
+}
+
+.login-card input:focus {
+  border-color: #55906a;
+  box-shadow: 0 0 0 3px rgba(85, 144, 106, 0.1);
+}
+
+.login-button {
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  padding: 13px;
+  background: #236b43;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.login-button:hover {
+  background: #1c5937;
+}
+
+.login-link {
+  border: none;
+  background: transparent;
+  color: #236b43;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+@media (max-width: 500px) {
+  .login-card {
+    padding: 25px 20px;
+  }
+}

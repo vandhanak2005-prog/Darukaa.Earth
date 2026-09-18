@@ -19,15 +19,195 @@ function App() {
   const [siteName, setSiteName] = useState("");
   const [pendingSiteFeature, setPendingSiteFeature] = useState(null);
 
-  const API_URL = "https://darukaa-earth-b1vt.onrender.com";
+  /* =========================
+     AUTHENTICATION
+  ========================= */
+
+  const [isLoggedIn, setIsLoggedIn] = useState(
+    localStorage.getItem("darukaa_token") !== null
+  );
+
+  const [showRegister, setShowRegister] = useState(false);
+
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+
+  const [registerName, setRegisterName] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
+  const [registerPassword, setRegisterPassword] = useState("");
+
+  const API_URL = "http://127.0.0.1:8000";
+
+  /* =========================
+     LOAD PROJECTS AFTER LOGIN
+  ========================= */
 
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    if (isLoggedIn) {
+      fetchProjects();
+    }
+  }, [isLoggedIn]);
+
+  /* =========================
+     AUTH HEADER
+  ========================= */
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("darukaa_token");
+
+    return {
+      "Content-Type": "application/json",
+      ...(token
+        ? {
+            Authorization: `Bearer ${token}`,
+          }
+        : {}),
+    };
+  };
+
+  /* =========================
+     LOGIN
+  ========================= */
+
+  const handleLogin = async () => {
+    if (!loginEmail.trim() || !loginPassword.trim()) {
+      alert("Please enter your email and password.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: loginEmail.trim(),
+          password: loginPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Login error:", data);
+
+        const message =
+          data?.detail || "Invalid email or password.";
+
+        alert(message);
+        return;
+      }
+
+      localStorage.setItem(
+        "darukaa_token",
+        data.access_token
+      );
+
+      if (data.user) {
+        localStorage.setItem(
+          "darukaa_user",
+          JSON.stringify(data.user)
+        );
+      }
+
+      setLoginEmail("");
+      setLoginPassword("");
+      setIsLoggedIn(true);
+    } catch (error) {
+      console.error("Login failed:", error);
+      alert("Could not connect to the server.");
+    }
+  };
+
+  /* =========================
+     REGISTER
+  ========================= */
+
+  const handleRegister = async () => {
+    if (
+      !registerName.trim() ||
+      !registerEmail.trim() ||
+      !registerPassword.trim()
+    ) {
+      alert("Please fill all fields.");
+      return;
+    }
+
+    if (registerPassword.length < 6) {
+      alert("Password must contain at least 6 characters.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: registerName.trim(),
+          email: registerEmail.trim(),
+          password: registerPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Registration error:", data);
+
+        const message =
+          data?.detail || "Registration failed.";
+
+        alert(message);
+        return;
+      }
+
+      alert(
+        "Registration successful! Please login with your account."
+      );
+
+      setRegisterName("");
+      setRegisterEmail("");
+      setRegisterPassword("");
+
+      setLoginEmail(data.email || registerEmail.trim());
+      setLoginPassword("");
+
+      setShowRegister(false);
+    } catch (error) {
+      console.error("Registration failed:", error);
+      alert("Could not connect to the server.");
+    }
+  };
+
+  /* =========================
+     LOGOUT
+  ========================= */
+
+  const handleLogout = () => {
+    localStorage.removeItem("darukaa_token");
+    localStorage.removeItem("darukaa_user");
+
+    setIsLoggedIn(false);
+
+    setProjects([]);
+    setSites([]);
+    setSelectedSite(null);
+    setActiveProject(null);
+    setExpandedProject(null);
+  };
+
+  /* =========================
+     FETCH PROJECTS
+  ========================= */
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch(`${API_URL}/projects`);
+      const response = await fetch(`${API_URL}/projects`, {
+        headers: getAuthHeaders(),
+      });
 
       if (!response.ok) {
         throw new Error("Failed to fetch projects");
@@ -40,7 +220,6 @@ function App() {
       if (data.length > 0) {
         await fetchSites(data);
 
-        // Keep currently selected project if it still exists
         setActiveProject((currentActive) => {
           if (currentActive) {
             const updatedProject = data.find(
@@ -61,22 +240,31 @@ function App() {
     }
   };
 
+  /* =========================
+     FETCH SITES
+  ========================= */
+
   const fetchSites = async (projectList = projects) => {
     try {
       let allSites = [];
 
       for (const project of projectList) {
         const response = await fetch(
-          `${API_URL}/projects/${project.id}/sites`
+          `${API_URL}/projects/${project.id}/sites`,
+          {
+            headers: getAuthHeaders(),
+          }
         );
 
         if (response.ok) {
           const projectSites = await response.json();
 
-          const sitesWithProjectId = projectSites.map((site) => ({
-            ...site,
-            project_id: project.id,
-          }));
+          const sitesWithProjectId = projectSites.map(
+            (site) => ({
+              ...site,
+              project_id: project.id,
+            })
+          );
 
           allSites = [
             ...allSites,
@@ -91,6 +279,10 @@ function App() {
     }
   };
 
+  /* =========================
+     CREATE PROJECT
+  ========================= */
+
   const createProject = async () => {
     if (!projectName.trim()) {
       alert("Please enter a project name.");
@@ -100,9 +292,7 @@ function App() {
     try {
       const response = await fetch(`${API_URL}/projects`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           name: projectName,
           description: projectDescription,
@@ -112,6 +302,13 @@ function App() {
       });
 
       if (!response.ok) {
+        const errorData = await response.json();
+
+        console.error(
+          "Project creation error:",
+          errorData
+        );
+
         throw new Error("Failed to create project");
       }
 
@@ -121,7 +318,6 @@ function App() {
       setProjectDescription("");
       setShowProjectModal(false);
 
-      // Make newly created project active
       setActiveProject(createdProject);
       setExpandedProject(createdProject.id);
 
@@ -132,7 +328,10 @@ function App() {
     }
   };
 
-  // Called when a polygon is drawn on the map
+  /* =========================
+     MAP SITE CREATED
+  ========================= */
+
   const handleSiteCreated = (feature) => {
     if (projects.length === 0) {
       alert("Please create a project first.");
@@ -144,7 +343,10 @@ function App() {
     setShowSiteModal(true);
   };
 
-  // Save site after entering site name
+  /* =========================
+     CREATE SITE
+  ========================= */
+
   const createSite = async () => {
     if (!siteName.trim()) {
       alert("Please enter a site name.");
@@ -156,7 +358,6 @@ function App() {
       return;
     }
 
-    // Add site to the currently active project
     const selectedProject =
       activeProject || projects[0];
 
@@ -178,9 +379,7 @@ function App() {
         `${API_URL}/projects/${selectedProject.id}/sites`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify(newSite),
         }
       );
@@ -200,7 +399,6 @@ function App() {
       setPendingSiteFeature(null);
       setShowSiteModal(false);
 
-      // Keep the selected project expanded
       setActiveProject(selectedProject);
       setExpandedProject(selectedProject.id);
 
@@ -213,12 +411,13 @@ function App() {
     }
   };
 
-  // Click project
+  /* =========================
+     PROJECT CLICK
+  ========================= */
+
   const handleProjectClick = (project) => {
-    // Make this project active
     setActiveProject(project);
 
-    // Expand / collapse project
     if (expandedProject === project.id) {
       setExpandedProject(null);
     } else {
@@ -226,11 +425,13 @@ function App() {
     }
   };
 
-  // Click site
+  /* =========================
+     SITE CLICK
+  ========================= */
+
   const handleSiteClick = (site) => {
     setSelectedSite(site);
 
-    // Make the site's project active
     const project = projects.find(
       (item) => item.id === site.project_id
     );
@@ -258,6 +459,412 @@ function App() {
           site.project_id === activeProject.id
       )
     : [];
+
+  /* =====================================================
+     LOGIN / REGISTER SCREEN
+     DASHBOARD BELOW THIS REMAINS UNCHANGED
+  ===================================================== */
+
+  if (!isLoggedIn) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f4f7f5",
+          padding: "20px",
+          boxSizing: "border-box",
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: "430px",
+            background: "#ffffff",
+            borderRadius: "16px",
+            padding: "40px",
+            boxSizing: "border-box",
+            boxShadow:
+              "0 10px 40px rgba(18, 59, 40, 0.12)",
+          }}
+        >
+          <div
+            style={{
+              textAlign: "center",
+              marginBottom: "30px",
+            }}
+          >
+            <div
+              style={{
+                width: "64px",
+                height: "64px",
+                margin: "0 auto 16px",
+                borderRadius: "16px",
+                background: "#123b28",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "30px",
+              }}
+            >
+              🌍
+            </div>
+
+            <h1
+              style={{
+                margin: "0 0 8px",
+                color: "#123b28",
+                fontSize: "28px",
+              }}
+            >
+              Darukaa.Earth
+            </h1>
+
+            <p
+              style={{
+                margin: 0,
+                color: "#6b7280",
+                fontSize: "14px",
+              }}
+            >
+              Environmental Intelligence Platform
+            </p>
+          </div>
+
+          {!showRegister ? (
+            <>
+              <h2
+                style={{
+                  margin: "0 0 8px",
+                  color: "#1f2937",
+                  fontSize: "22px",
+                }}
+              >
+                Welcome back
+              </h2>
+
+              <p
+                style={{
+                  margin: "0 0 24px",
+                  color: "#6b7280",
+                  fontSize: "14px",
+                }}
+              >
+                Login to access your environmental
+                dashboard.
+              </p>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "7px",
+                  marginBottom: "18px",
+                }}
+              >
+                <label
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    color: "#374151",
+                  }}
+                >
+                  Email
+                </label>
+
+                <input
+                  type="email"
+                  value={loginEmail}
+                  onChange={(event) =>
+                    setLoginEmail(event.target.value)
+                  }
+                  placeholder="Enter your email"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      handleLogin();
+                    }
+                  }}
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "12px 14px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                    outline: "none",
+                  }}
+                />
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "7px",
+                  marginBottom: "22px",
+                }}
+              >
+                <label
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    color: "#374151",
+                  }}
+                >
+                  Password
+                </label>
+
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(event) =>
+                    setLoginPassword(event.target.value)
+                  }
+                  placeholder="Enter your password"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      handleLogin();
+                    }
+                  }}
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "12px 14px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                    outline: "none",
+                  }}
+                />
+              </div>
+
+              <button
+                onClick={handleLogin}
+                style={{
+                  width: "100%",
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "13px",
+                  background: "#123b28",
+                  color: "#ffffff",
+                  fontSize: "15px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                Login
+              </button>
+
+              <p
+                style={{
+                  textAlign: "center",
+                  margin: "22px 0 0",
+                  color: "#6b7280",
+                  fontSize: "14px",
+                }}
+              >
+                Don't have an account?{" "}
+                <button
+                  onClick={() => setShowRegister(true)}
+                  style={{
+                    border: "none",
+                    background: "none",
+                    color: "#123b28",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    padding: 0,
+                    fontSize: "14px",
+                  }}
+                >
+                  Register
+                </button>
+              </p>
+            </>
+          ) : (
+            <>
+              <h2
+                style={{
+                  margin: "0 0 8px",
+                  color: "#1f2937",
+                  fontSize: "22px",
+                }}
+              >
+                Create account
+              </h2>
+
+              <p
+                style={{
+                  margin: "0 0 24px",
+                  color: "#6b7280",
+                  fontSize: "14px",
+                }}
+              >
+                Register to use the Darukaa.Earth
+                platform.
+              </p>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "7px",
+                  marginBottom: "18px",
+                }}
+              >
+                <label
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    color: "#374151",
+                  }}
+                >
+                  Name
+                </label>
+
+                <input
+                  type="text"
+                  value={registerName}
+                  onChange={(event) =>
+                    setRegisterName(event.target.value)
+                  }
+                  placeholder="Enter your name"
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "12px 14px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                  }}
+                />
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "7px",
+                  marginBottom: "18px",
+                }}
+              >
+                <label
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    color: "#374151",
+                  }}
+                >
+                  Email
+                </label>
+
+                <input
+                  type="email"
+                  value={registerEmail}
+                  onChange={(event) =>
+                    setRegisterEmail(event.target.value)
+                  }
+                  placeholder="Enter your email"
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "12px 14px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                  }}
+                />
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "7px",
+                  marginBottom: "22px",
+                }}
+              >
+                <label
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    color: "#374151",
+                  }}
+                >
+                  Password
+                </label>
+
+                <input
+                  type="password"
+                  value={registerPassword}
+                  onChange={(event) =>
+                    setRegisterPassword(event.target.value)
+                  }
+                  placeholder="Minimum 6 characters"
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "12px 14px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                  }}
+                />
+              </div>
+
+              <button
+                onClick={handleRegister}
+                style={{
+                  width: "100%",
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "13px",
+                  background: "#123b28",
+                  color: "#ffffff",
+                  fontSize: "15px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                Create Account
+              </button>
+
+              <p
+                style={{
+                  textAlign: "center",
+                  margin: "22px 0 0",
+                  color: "#6b7280",
+                  fontSize: "14px",
+                }}
+              >
+                Already have an account?{" "}
+                <button
+                  onClick={() => setShowRegister(false)}
+                  style={{
+                    border: "none",
+                    background: "none",
+                    color: "#123b28",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    padding: 0,
+                    fontSize: "14px",
+                  }}
+                >
+                  Login
+                </button>
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  /* =====================================================
+     DASHBOARD
+  ===================================================== */
 
   return (
     <div className="app-layout">
@@ -319,7 +926,12 @@ function App() {
               V
             </div>
 
-            <div>
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+              }}
+            >
               <strong>
                 Admin
               </strong>
@@ -328,6 +940,21 @@ function App() {
                 Project Manager
               </span>
             </div>
+
+            <button
+              onClick={handleLogout}
+              title="Logout"
+              style={{
+                border: "none",
+                background: "transparent",
+                color: "#ffffff",
+                cursor: "pointer",
+                fontSize: "18px",
+                padding: "6px",
+              }}
+            >
+              ↪
+            </button>
 
           </div>
 
@@ -381,8 +1008,6 @@ function App() {
 
           <div className="stats-grid">
 
-            {/* TOTAL PROJECTS */}
-
             <div className="stat-card">
 
               <div className="stat-icon">
@@ -403,8 +1028,6 @@ function App() {
 
             </div>
 
-            {/* TOTAL SITES */}
-
             <div className="stat-card">
 
               <div className="stat-icon">
@@ -424,8 +1047,6 @@ function App() {
               </div>
 
             </div>
-
-            {/* ACTIVE PROJECT */}
 
             <div className="stat-card">
 
@@ -451,8 +1072,6 @@ function App() {
 
             </div>
 
-            {/* SITES MONITORED */}
-
             <div className="stat-card">
 
               <div className="stat-icon">
@@ -476,8 +1095,6 @@ function App() {
             </div>
 
           </div>
-
-          {/* ACTIVE PROJECT DETAILS */}
 
           {activeProject && (
 
@@ -646,8 +1263,6 @@ function App() {
                     key={project.id}
                   >
 
-                    {/* PROJECT HEADER */}
-
                     <div
                       onClick={() =>
                         handleProjectClick(
@@ -686,8 +1301,6 @@ function App() {
                       </div>
 
                     </div>
-
-                    {/* PROJECT SITES */}
 
                     {isExpanded && (
 
