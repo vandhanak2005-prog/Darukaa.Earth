@@ -266,7 +266,7 @@ def create_project(
 
 
 # --------------------------------------------------
-# GET USER'S PROJECTS
+# GET PROJECTS
 # --------------------------------------------------
 
 
@@ -276,13 +276,8 @@ def create_project(
 )
 def get_projects(
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
 ):
-    projects = (
-        db.query(models.Project)
-        .filter(models.Project.owner_id == current_user.id)
-        .all()
-    )
+    projects = db.query(models.Project).filter(models.Project.owner_id == 1).all()
 
     for project in projects:
         carbon_score, biodiversity_score = calculate_project_scores(project)
@@ -307,13 +302,12 @@ def get_projects(
 def get_project(
     project_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
 ):
     project = (
         db.query(models.Project)
         .filter(
             models.Project.id == project_id,
-            models.Project.owner_id == current_user.id,
+            models.Project.owner_id == 1,
         )
         .first()
     )
@@ -396,7 +390,6 @@ def create_site(
 
     # --------------------------------------------------
     # CALCULATE AREA
-    #
     # EPSG:6933 = equal-area projection
     # Result converted from square metres to hectares
     # --------------------------------------------------
@@ -474,13 +467,12 @@ def create_site(
 def get_project_sites(
     project_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
 ):
     project = (
         db.query(models.Project)
         .filter(
             models.Project.id == project_id,
-            models.Project.owner_id == current_user.id,
+            models.Project.owner_id == 1,
         )
         .first()
     )
