@@ -36,7 +36,7 @@ function App() {
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
 
-  const API_URL = "http://127.0.0.1:8000";
+  const API_URL = "https://darukaa-earth-b1vt.onrender.com";
 
   /* =========================
      LOAD PROJECTS AFTER LOGIN
