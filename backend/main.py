@@ -11,6 +11,7 @@ from auth import (
 )
 from database import engine, get_db
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from geoalchemy2 import Geometry
 from sqlalchemy import cast, func
@@ -31,6 +32,22 @@ app = FastAPI(
     title="Darukaa.Earth API",
     description="Environmental Intelligence Platform",
     version="1.0.0",
+)
+
+
+# --------------------------------------------------
+# CORS
+# --------------------------------------------------
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://darukaa-earth-ten.vercel.app",
+        "https://darukaa-earth-git-master-vandhanak2005-prog.vercel.app",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -142,7 +159,10 @@ def database_test(db: Session = Depends(get_db)):
     try:
         db.query(models.User).count()
 
-        return {"database": "connected", "message": "PostgreSQL database is working"}
+        return {
+            "database": "connected",
+            "message": "PostgreSQL database is working",
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -154,13 +174,19 @@ def database_test(db: Session = Depends(get_db)):
 
 
 @app.post("/register", response_model=schemas.UserResponse)
-def register(user: schemas.UserRegister, db: Session = Depends(get_db)):
+def register(
+    user: schemas.UserRegister,
+    db: Session = Depends(get_db),
+):
     existing_user = (
         db.query(models.User).filter(models.User.email == user.email).first()
     )
 
     if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(
+            status_code=400,
+            detail="Email already registered",
+        )
 
     new_user = models.User(
         name=user.name,
@@ -181,16 +207,25 @@ def register(user: schemas.UserRegister, db: Session = Depends(get_db)):
 
 
 @app.post("/login")
-def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
+def login(
+    user: schemas.UserLogin,
+    db: Session = Depends(get_db),
+):
     existing_user = (
         db.query(models.User).filter(models.User.email == user.email).first()
     )
 
     if not existing_user:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password",
+        )
 
     if not verify_password(user.password, existing_user.password):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password",
+        )
 
     access_token = create_access_token({"user_id": existing_user.id})
 
@@ -210,7 +245,10 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
 # --------------------------------------------------
 
 
-@app.post("/projects", response_model=schemas.ProjectResponse)
+@app.post(
+    "/projects",
+    response_model=schemas.ProjectResponse,
+)
 def create_project(
     project: schemas.ProjectCreate,
     db: Session = Depends(get_db),
@@ -236,7 +274,10 @@ def create_project(
 # --------------------------------------------------
 
 
-@app.get("/projects", response_model=list[schemas.ProjectResponse])
+@app.get(
+    "/projects",
+    response_model=list[schemas.ProjectResponse],
+)
 def get_projects(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
@@ -247,7 +288,6 @@ def get_projects(
         .all()
     )
 
-    # Update project scores from its sites
     for project in projects:
         carbon_score, biodiversity_score = calculate_project_scores(project)
 
@@ -264,7 +304,10 @@ def get_projects(
 # --------------------------------------------------
 
 
-@app.get("/projects/{project_id}", response_model=schemas.ProjectResponse)
+@app.get(
+    "/projects/{project_id}",
+    response_model=schemas.ProjectResponse,
+)
 def get_project(
     project_id: int,
     db: Session = Depends(get_db),
@@ -280,7 +323,10 @@ def get_project(
     )
 
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found",
+        )
 
     carbon_score, biodiversity_score = calculate_project_scores(project)
 
@@ -297,14 +343,16 @@ def get_project(
 # --------------------------------------------------
 
 
-@app.post("/projects/{project_id}/sites", response_model=schemas.SiteResponse)
+@app.post(
+    "/projects/{project_id}/sites",
+    response_model=schemas.SiteResponse,
+)
 def create_site(
     project_id: int,
     site: schemas.SiteCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    # Make sure the project belongs to logged-in user
     project = (
         db.query(models.Project)
         .filter(
@@ -315,7 +363,10 @@ def create_site(
     )
 
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found",
+        )
 
     # --------------------------------------------------
     # GEOJSON VALIDATION
@@ -324,17 +375,24 @@ def create_site(
     geometry_data = site.geometry
 
     if not geometry_data:
-        raise HTTPException(status_code=400, detail="Geometry is required")
+        raise HTTPException(
+            status_code=400,
+            detail="Geometry is required",
+        )
 
     if geometry_data.get("type") != "Polygon":
         raise HTTPException(
-            status_code=400, detail="Only Polygon geometry is supported"
+            status_code=400,
+            detail="Only Polygon geometry is supported",
         )
 
     coordinates = geometry_data.get("coordinates")
 
     if not coordinates or not coordinates[0]:
-        raise HTTPException(status_code=400, detail="Invalid polygon coordinates")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid polygon coordinates",
+        )
 
     # --------------------------------------------------
     # CREATE POLYGON
@@ -353,7 +411,13 @@ def create_site(
 
     area_result = db.query(
         func.ST_Area(
-            func.ST_Transform(cast(polygon, Geometry("POLYGON", srid=4326)), 6933)
+            func.ST_Transform(
+                cast(
+                    polygon,
+                    Geometry("POLYGON", srid=4326),
+                ),
+                6933,
+            )
         )
         / 10000
     ).scalar()
@@ -411,13 +475,15 @@ def create_site(
 # --------------------------------------------------
 
 
-@app.get("/projects/{project_id}/sites", response_model=list[schemas.SiteResponse])
+@app.get(
+    "/projects/{project_id}/sites",
+    response_model=list[schemas.SiteResponse],
+)
 def get_project_sites(
     project_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    # Check project ownership
     project = (
         db.query(models.Project)
         .filter(
@@ -428,10 +494,16 @@ def get_project_sites(
     )
 
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found",
+        )
 
     results = (
-        db.query(models.Site, func.ST_AsGeoJSON(models.Site.geometry).label("geometry"))
+        db.query(
+            models.Site,
+            func.ST_AsGeoJSON(models.Site.geometry).label("geometry"),
+        )
         .filter(models.Site.project_id == project_id)
         .all()
     )
@@ -463,15 +535,24 @@ def get_project_sites(
 # --------------------------------------------------
 
 
-@app.get("/sites/{site_id}", response_model=schemas.SiteResponse)
+@app.get(
+    "/sites/{site_id}",
+    response_model=schemas.SiteResponse,
+)
 def get_site(
     site_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
     result = (
-        db.query(models.Site, func.ST_AsGeoJSON(models.Site.geometry).label("geometry"))
-        .join(models.Project, models.Site.project_id == models.Project.id)
+        db.query(
+            models.Site,
+            func.ST_AsGeoJSON(models.Site.geometry).label("geometry"),
+        )
+        .join(
+            models.Project,
+            models.Site.project_id == models.Project.id,
+        )
         .filter(
             models.Site.id == site_id,
             models.Project.owner_id == current_user.id,
@@ -480,7 +561,10 @@ def get_site(
     )
 
     if not result:
-        raise HTTPException(status_code=404, detail="Site not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Site not found",
+        )
 
     site, geometry = result
 
