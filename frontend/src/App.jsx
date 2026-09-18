@@ -19,7 +19,7 @@ function App() {
   const [siteName, setSiteName] = useState("");
   const [pendingSiteFeature, setPendingSiteFeature] = useState(null);
 
-  const API_URL = "http://127.0.0.1:8000";
+  const API_URL = "https://darukaa-earth-b1vt.onrender.com";
 
   useEffect(() => {
     fetchProjects();
