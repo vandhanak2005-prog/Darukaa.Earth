@@ -245,21 +245,17 @@ def login(
 # --------------------------------------------------
 
 
-@app.post(
-    "/projects",
-    response_model=schemas.ProjectResponse,
-)
+@app.post("/projects", response_model=schemas.ProjectResponse)
 def create_project(
     project: schemas.ProjectCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
 ):
     new_project = models.Project(
         name=project.name,
         description=project.description,
         carbon_score=project.carbon_score,
         biodiversity_score=project.biodiversity_score,
-        owner_id=current_user.id,
+        owner_id=1,
     )
 
     db.add(new_project)
@@ -343,21 +339,17 @@ def get_project(
 # --------------------------------------------------
 
 
-@app.post(
-    "/projects/{project_id}/sites",
-    response_model=schemas.SiteResponse,
-)
+@app.post("/projects/{project_id}/sites", response_model=schemas.SiteResponse)
 def create_site(
     project_id: int,
     site: schemas.SiteCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
 ):
     project = (
         db.query(models.Project)
         .filter(
             models.Project.id == project_id,
-            models.Project.owner_id == current_user.id,
+            models.Project.owner_id == 1,
         )
         .first()
     )
