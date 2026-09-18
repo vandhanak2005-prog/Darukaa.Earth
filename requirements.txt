@@ -10,3 +10,4 @@ passlib==1.7.4
 bcrypt==4.0.1
 python-multipart==0.0.32
 shapely==2.1.2
+ruff==0.13.0
